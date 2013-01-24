@@ -1,0 +1,155 @@
+#Assumptions, appropriate statistical power
+#Outliers come only from the sampling distribution
+#Variance the same  in each condition
+
+popGen <- function(meanCog=700,meanNcog=700,sd=10,N=1000000){
+  #Population
+  cogs<-rnorm(N,meanCog,sd=100)
+  ncogs<-rnorm(N,meanNcog,sd=100)
+  return(as.data.frame(cbind(cogs,ncogs)))
+}
+
+
+sampler <- function(data,nsamples,nsims=10000){
+  simdata<-data.frame()
+
+  cogs.sample<-numeric()
+  ncogs.sample<-numeric()
+
+  for(simn in 1:nsims){
+    cogs.sample<-sample(data$cogs,nsamples)
+    ncogs.sample<-sample(data$ncogs,nsamples)
+
+    RT <- c(cogs.sample,ncogs.sample)
+    CogStat<-c(rep("cog",nsamples),rep("ncog",nsamples))
+    sample <- data.frame(CogStat,RT)
+    
+    sample<-ddply(sample,.(CogStat),transform,cuthigh=mean(RT) + 2.5*sd(RT), cutlow=mean(RT)-2.5*sd(RT)) 
+    sample.no.dif <- sample[sample$RT > sample$cutlow & sample$RT < sample$cuthigh,]
+    sample.no.same<-sample[sample$RT > mean(sample$RT) - 2.5*sd(sample$RT) & sample$RT < mean(sample$RT) + 2.5*sd(sample$RT), ]	
+ 
+    ttest.no.dif<-t.test(sample.no.dif$RT[sample.no.dif$CogStat=="cog"],sample.no.dif$RT[sample.no.dif$CogStat=="ncog"])
+    ttest.no.same<-t.test(sample.no.same$RT[sample.no.same$CogStat=="cog"],sample.no.same$RT[sample.no.same$CogStat=="ncog"])
+    ttest.nocorr <- t.test(sample$RT[sample$CogStat=="cog"],sample$RT[sample$CogStat=="ncog"])
+    
+    es.no.dif <- abs((mean(sample.no.dif$RT[sample.no.dif$CogStat == "cog"]) - mean(sample.no.dif$RT[sample.no.dif$CogStat == "ncog"])) / sd(sample.no.dif$RT))
+    es.no.same <- abs((mean(sample.no.same$RT[sample.no.same$CogStat == "cog"]) - mean(sample.no.same$RT[sample.no.same$CogStat == "ncog"])) / sd(sample.no.same$RT))
+    es.nocorr <- abs( (mean(sample$RT[sample$CogStat=="cog"]) - mean(sample$RT[sample$CogStat=="ncog"])) / sd(sample$RT))
+    
+    curdata<-data.frame(simN=simn,
+                        t.dif=abs(as.numeric(ttest.no.dif[1])),
+                        p.dif=as.numeric(ttest.no.dif[3]),
+                        es.dif=as.numeric(es.no.dif),
+                        
+                        t.same=abs(as.numeric(ttest.no.same[1])),
+                        p.same=as.numeric(ttest.no.same[3]),
+                        es.same=as.numeric(es.no.same),
+                        
+                        t.nocorr=abs(as.numeric(ttest.nocorr[1])),
+                        p.nocorr=as.numeric(ttest.nocorr[3]),
+                        es.nocorr=as.numeric(es.nocorr)
+                        )
+    simdata<-rbind(simdata,curdata)
+  }
+  
+  return(simdata)
+}
+
+
+pop.same<-popGen(700,700)
+pop.dif<-popGen(600,710)
+
+simdata.same<-sampler(pop.same,300,10000)
+simdata.dif<-sampler(pop.dif,300,10000)
+
+
+#################### Rejections of Null#######################
+#Same pop #Incorrect rejection of the null
+print("Same pop, treated differently")
+nrow(simdata.same[simdata.same$p.dif < 0.05,])
+mean(simdata.same$t.dif)
+mean(simdata.same$es.dif)
+mean(simdata.same$t.dif[simdata.same$p.dif < 0.05])
+mean(simdata.same$es.dif[simdata.same$p.dif < 0.05])
+
+print("Same pop, treated same")
+nrow(simdata.same[simdata.same$p.same < 0.05,])
+mean(simdata.same$t.same)
+mean(simdata.same$es.same)
+mean(simdata.same$t.same[simdata.same$p.same < 0.05])
+mean(simdata.same$es.same[simdata.same$p.same < 0.05])
+
+print("Same pop, no outlier corrections")
+nrow(simdata.same[simdata.same$p.nocorr < 0.05,])
+mean(simdata.same$t.nocorr)
+mean(simdata.same$es.nocorr)
+mean(simdata.same$t.nocorr[simdata.same$p.nocorr < 0.05])
+mean(simdata.same$es.nocorr[simdata.same$p.nocorr < 0.05])
+
+#Dif pop #Correct  rejection of the null
+print("Different pop, treated differently")
+nrow(simdata.dif[simdata.dif$p.dif < 0.05 ,])
+mean(simdata.dif$t.dif)
+mean(simdata.dif$es.dif)
+mean(simdata.dif$t.dif[simdata.dif$p.dif < 0.05])
+mean(simdata.dif$es.dif[simdata.dif$p.dif < 0.05])
+
+print("Different pop, treated same")
+nrow(simdata.dif[simdata.dif$p.same < 0.05,])
+mean(simdata.dif$t.same)
+mean(simdata.dif$es.same)
+mean(simdata.dif$t.same[simdata.dif$p.same < 0.05])
+mean(simdata.dif$es.same[simdata.dif$p.same < 0.05])
+
+print("Different pop, no outlier corrections")
+nrow(simdata.dif[simdata.dif$p.nocorr < 0.05,])
+mean(simdata.dif$t.nocorr)
+mean(simdata.dif$es.nocorr)
+mean(simdata.dif$t.nocorr[simdata.dif$p.nocorr < 0.05])
+mean(simdata.dif$es.nocorr[simdata.dif$p.nocorr < 0.05])
+
+
+#################### Acceptance of Null#######################
+#Same pop #Correct acceptance of the null
+print("Same pop, treated differently")
+nrow(simdata.same[simdata.same$p.dif >= 0.05,])
+mean(simdata.same$t.dif)
+mean(simdata.same$es.dif)
+mean(simdata.same$t.dif[simdata.same$p.dif >= 0.05])
+mean(simdata.same$es.dif[simdata.same$p.dif >= 0.05])
+
+print("Same pop, treated same")
+nrow(simdata.same[simdata.same$p.same >= 0.05,])
+mean(simdata.same$t.same)
+mean(simdata.same$es.same)
+mean(simdata.same$t.same[simdata.same$p.same >= 0.05])
+mean(simdata.same$es.same[simdata.same$p.same >= 0.05])
+
+print("Same pop, no outlier corrections")
+nrow(simdata.same[simdata.same$p.nocorr >= 0.05,])
+mean(simdata.same$t.nocorr)
+mean(simdata.same$es.nocorr)
+mean(simdata.same$t.nocorr[simdata.same$p.nocorr >= 0.05])
+mean(simdata.same$es.nocorr[simdata.same$p.nocorr >= 0.05])
+
+#Dif pop #Incorrect acceptance of the null
+print("Different pop, treated differently")
+nrow(simdata.dif[simdata.dif$p.dif >= 0.05 ,])
+mean(simdata.dif$t.dif)
+mean(simdata.dif$es.dif)
+mean(simdata.dif$t.dif[simdata.dif$p.dif >= 0.05])
+mean(simdata.dif$es.dif[simdata.dif$p.dif >= 0.05])
+
+print("Different pop, treated same")
+nrow(simdata.dif[simdata.dif$p.same >= 0.05,])
+mean(simdata.dif$t.same)
+mean(simdata.dif$es.same)
+mean(simdata.dif$t.same[simdata.dif$p.same >= 0.05])
+mean(simdata.dif$es.same[simdata.dif$p.same >= 0.05])
+
+print("Different pop, no outlier corrections")
+nrow(simdata.dif[simdata.dif$p.nocorr >= 0.05,])
+mean(simdata.dif$t.nocorr)
+mean(simdata.dif$es.nocorr)
+mean(simdata.dif$t.nocorr[simdata.dif$p.nocorr >= 0.05])
+mean(simdata.dif$es.nocorr[simdata.dif$p.nocorr >= 0.05])
