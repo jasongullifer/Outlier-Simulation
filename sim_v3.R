@@ -8,15 +8,22 @@
 
 # Variance the same in each condition
 
+library(plyr)
+library(reshape)
 
 popGen <- function(meanCog=700,meanNcog=700,sd=10,N=1000000){
   #Population generator
-  cogs<-rnorm(N,meanCog,sd=100)
-  ncogs<-rnorm(N,meanNcog,sd=100)
+  cogs<-rnorm(N,meanCog,sd=sd)
+  if (meanCog == meanNcog){ #if you want equal means, make them literally equal
+ 	ncogs<-cogs
+  	}
+  else{
+	ncogs<-rnorm(N,meanNcog,sd=sd)
+  }
   return(as.data.frame(cbind(cogs,ncogs)))
 }
 
-sampler <- function(data,nsamples,nsims=10000,numExternalOutliers=0.05){
+sampler <- function(data,nsamples=50,nsims=10000,numExternalOutliers=0.05){
   #Sample nsamples from an input population and add an amount of
   #externally generated outliers. Conduct t-tests on the sample for 3
   #outlier removal procedures: treating cogs and ncogs as one
@@ -106,8 +113,8 @@ sampler <- function(data,nsamples,nsims=10000,numExternalOutliers=0.05){
   pop.same<-popGen(700,700) #generate a known "same" population
   pop.dif<-popGen(600,710) #generate a known "difference" population
   
-  simdata.same<-sampler(pop.same,50,1000)  #run simulations on same data
-  simdata.dif<-sampler(pop.dif,50,1000)    #run simulations on different data
+  simdata.same<-sampler(pop.same,50,10000)  #run simulations on same data
+  simdata.dif<-sampler(pop.dif,50,10000)    #run simulations on different data
   
   
 #################### Rejections of Null#######################
